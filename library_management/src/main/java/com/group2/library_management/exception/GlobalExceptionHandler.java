@@ -9,12 +9,12 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
 @Slf4j
-@ControllerAdvice
+@ControllerAdvice(basePackages = "com.group2.library_management.controller.admin")
 public class GlobalExceptionHandler {
 
     /**
      * Catches and handles all EntityNotFoundException exceptions
-     * thrown from anywhere in the application.
+     * thrown from web controllers (admin package only).
      * @param ex The caught exception.
      * @param model Model to pass error message to the view.
      * @return Name of the error template to be rendered.
@@ -22,8 +22,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(EntityNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public String handleEntityNotFound(EntityNotFoundException ex, Model model) {
-        log.warn("Resource not found requested: {}", ex.getMessage());
+        log.warn("Resource not found requested in web controller: {}", ex.getMessage());
         model.addAttribute("errorMessage", ex.getMessage());
-        return "error/404"; // Points to view error/404.html
+        return "error/404"; // Points to view error/404.html for web controllers
     }
 }

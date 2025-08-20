@@ -8,13 +8,21 @@
             <h4 class="card-title" th:text="#{admin.borrowing.actions.title}">Hành Động</h4>
             <div th:switch="${receipt.status()}">
                 <div th:case="${T(com.group2.library_management.entity.enums.BorrowingStatus).PENDING}">
-                    <button type="button" class="btn btn-gradient-success btn-lg mr-2"
-                            onclick="alert('Chức năng Phê duyệt đang được phát triển')"><i
-                            class="mdi mdi-check-circle-outline mr-2"></i> <span th:text="#{admin.borrowing.actions.approve}">Phê duyệt</span>
-                    </button>
-                    <button type="button" class="btn btn-gradient-danger btn-lg"
-                            onclick="alert('Chức năng Từ chối đang được phát triển')"><i
-                            class="mdi mdi-close-circle-outline mr-2"></i> <span th:text="#{admin.borrowing.actions.reject}">Từ chối</span>
+                    <!-- Approval form -->
+                    <form th:action="@{/admin/borrow-requests/{id}/approve(id=${receipt.id()})}" method="post" 
+                          style="display: inline-block;" 
+                          onsubmit="return confirm('Bạn có chắc chắn muốn phê duyệt yêu cầu mượn sách này?')">
+                        <button type="submit" class="btn btn-gradient-success btn-lg mr-2">
+                            <i class="mdi mdi-check-circle-outline mr-2"></i> 
+                            <span th:text="#{admin.borrowing.actions.approve}">Phê duyệt</span>
+                        </button>
+                    </form>
+                    
+                    <!-- Reject button - opens modal -->
+                    <button type="button" class="btn btn-gradient-danger btn-lg" 
+                            data-toggle="modal" data-target="#rejectModal">
+                        <i class="mdi mdi-close-circle-outline mr-2"></i> 
+                        <span th:text="#{admin.borrowing.actions.reject}">Từ chối</span>
                     </button>
                 </div>
                 <div th:case="${T(com.group2.library_management.entity.enums.BorrowingStatus).APPROVED}">
@@ -65,6 +73,46 @@
             <a th:href="@{/admin/borrow-requests}" class="btn btn-gradient-light btn-lg">
                 <i class="mdi mdi-arrow-left-bold-circle-outline mr-2"></i> <span th:text="#{admin.borrowing.actions.back_to_list}">Quay lại danh sách</span>
             </a>
+        </div>
+    </div>
+
+    <!-- Modal for rejection reason input -->
+    <div class="modal fade" id="rejectModal" tabindex="-1" role="dialog" aria-labelledby="rejectModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <form th:action="@{/admin/borrow-requests/{id}/reject(id=${receipt.id()})}" method="post">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="rejectModalLabel">
+                            <i class="mdi mdi-close-circle-outline mr-2"></i>
+                            <span th:text="#{admin.borrowing.actions.reject_modal.title}">Từ chối yêu cầu mượn sách</span>
+                        </h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="rejectedReason" th:text="#{admin.borrowing.actions.reject_modal.reason_label}">Lý do từ chối:</label>
+                            <textarea class="form-control" id="rejectedReason" name="rejectedReason" 
+                                      rows="4" required 
+                                      th:placeholder="#{admin.borrowing.actions.reject_modal.reason_placeholder}"></textarea>
+                            <small class="form-text text-muted" th:text="#{admin.borrowing.actions.reject_modal.reason_help}">
+                                Vui lòng nhập lý do từ chối để người dùng hiểu rõ nguyên nhân.
+                            </small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                            <span th:text="#{admin.borrowing.actions.reject_modal.cancel}">Hủy</span>
+                        </button>
+                        <button type="submit" class="btn btn-danger" 
+                                onclick="return confirm('Bạn có chắc chắn muốn từ chối yêu cầu mượn sách này?')">
+                            <i class="mdi mdi-close-circle-outline mr-2"></i>
+                            <span th:text="#{admin.borrowing.actions.reject_modal.confirm}">Xác nhận từ chối</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>

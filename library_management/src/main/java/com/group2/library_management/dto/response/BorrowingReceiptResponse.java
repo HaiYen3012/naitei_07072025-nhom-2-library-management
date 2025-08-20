@@ -25,7 +25,7 @@ public record BorrowingReceiptResponse(
                                                       boolean includeDetails) {
         List<BorrowingDetailResponse> details = Collections.emptyList();
 
-        if (includeDetails && entity.getBorrowingDetails() != null && !entity.getBorrowingDetails().isEmpty()) {
+        if (includeDetails && entity.getBorrowingDetails() instanceof List<?> list && !list.isEmpty()) {
             details = entity.getBorrowingDetails().stream()
                     .map(BorrowingDetailResponse::fromEntity)
                     .collect(Collectors.toList());

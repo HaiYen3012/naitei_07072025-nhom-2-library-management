@@ -10,4 +10,10 @@ public interface BorrowingReceiptService {
             , Pageable pageable);
 
     BorrowingReceiptResponse getBorrowingRequestById(Integer id);
+    
+    void approveBorrowingRequest(Integer id);
+    
+    void rejectBorrowingRequest(Integer id, String rejectedReason);
+    
+    void returnBook(Integer id);
 }

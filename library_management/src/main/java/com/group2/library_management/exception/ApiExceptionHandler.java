@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.group2.library_management.dto.response.BaseApiResponse;
 import com.group2.library_management.dto.response.ErrorResponse;
 
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
@@ -107,6 +108,27 @@ public class ApiExceptionHandler {
             errorTitle
         );
         return new ResponseEntity<>(apiResponse, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<BaseApiResponse<ErrorResponse>> handleEntityNotFoundException(EntityNotFoundException ex, HttpServletRequest request) {
+        String errorMessage = getMessage("error.message.resource.not_found");
+        String errorTitle = getMessage("error.title.resource.not_found");
+
+        ErrorResponse errorResponse = new ErrorResponse(
+            LocalDateTime.now(),
+            HttpStatus.NOT_FOUND.value(),
+            HttpStatus.NOT_FOUND.getReasonPhrase(),
+            errorMessage,
+            request.getRequestURI()
+        );
+
+        BaseApiResponse<ErrorResponse> apiResponse = new BaseApiResponse<>(
+            HttpStatus.NOT_FOUND.value(),
+            errorResponse,
+            errorTitle
+        );
+        return new ResponseEntity<>(apiResponse, HttpStatus.NOT_FOUND);
     }
 
     /**
