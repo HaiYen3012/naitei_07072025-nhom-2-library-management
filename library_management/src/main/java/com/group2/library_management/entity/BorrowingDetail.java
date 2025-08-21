@@ -33,4 +33,26 @@ public class BorrowingDetail {
 
     @Column(name = "refund_date")
     private LocalDateTime refundDate;
+    
+    // Helper methods to work with existing logic
+    public LocalDateTime getDueDate() {
+        return borrowingReceipt != null ? borrowingReceipt.getDueDate() : null;
+    }
+    
+    public LocalDateTime getActualReturnDate() {
+        return refundDate;
+    }
+    
+    public void setActualReturnDate(LocalDateTime actualReturnDate) {
+        this.refundDate = actualReturnDate;
+    }
+    
+    // For notes, we'll use a simple approach - can be enhanced later
+    public String getNotes() {
+        return null; // Temporary - notes not supported in current DB
+    }
+    
+    public void setNotes(String notes) {
+        // Temporary - notes not supported in current DB
+    }
 }

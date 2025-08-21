@@ -40,5 +40,9 @@
     <div th:replace="~{admin/borrowing/fragments/_action_panel :: actionPanel(${receipt})}"></div>
 
 </div>
+
+<th:block layout:fragment="js">
+    <script th:src="@{/js/borrowing-detail-management.js}"></script>
+</th:block>
 </body>
 </html>

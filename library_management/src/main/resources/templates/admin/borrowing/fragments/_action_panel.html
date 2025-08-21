@@ -25,44 +25,8 @@
                         <span th:text="#{admin.borrowing.actions.reject}">Từ chối</span>
                     </button>
                 </div>
-                <div th:case="${T(com.group2.library_management.entity.enums.BorrowingStatus).APPROVED}">
-                    <button type="button" class="btn btn-gradient-primary btn-lg mr-2"
-                            onclick="alert('Chức năng Xác nhận mượn đang được phát triển')"><i
-                            class="mdi mdi-book-open-page-variant mr-2"></i> <span th:text="#{admin.borrowing.actions.confirm_borrow}">Xác nhận đã cho mượn</span>
-                    </button>
-                    <button type="button" class="btn btn-gradient-warning btn-lg"
-                            onclick="alert('Chức năng Hủy yêu cầu đang được phát triển')"><i
-                            class="mdi mdi-cancel mr-2"></i> <span th:text="#{admin.borrowing.actions.cancel}">Hủy yêu cầu</span>
-                    </button>
-                </div>
-                <div th:case="${T(com.group2.library_management.entity.enums.BorrowingStatus).BORROWED}">
-                    <button type="button" class="btn btn-gradient-info btn-lg mr-2"
-                            onclick="alert('Chức năng Xác nhận trả đang được phát triển')"><i
-                            class="mdi mdi-keyboard-return mr-2"></i> <span th:text="#{admin.borrowing.actions.confirm_return}">Xác nhận đã trả</span>
-                    </button>
-                    <button type="button" class="btn btn-gradient-danger btn-lg"
-                            onclick="alert('Chức năng Báo mất đang được phát triển')"><i
-                            class="mdi mdi-alert-octagon-outline mr-2"></i> <span th:text="#{admin.borrowing.actions.report_lost}">Báo mất</span>
-                    </button>
-                </div>
-                <div th:case="${T(com.group2.library_management.entity.enums.BorrowingStatus).OVERDUE}">
-                    <button type="button" class="btn btn-gradient-info btn-lg mr-2"
-                            onclick="alert('Chức năng Xác nhận trả đang được phát triển')"><i
-                            class="mdi mdi-keyboard-return mr-2"></i> <span th:text="#{admin.borrowing.actions.confirm_return_overdue}">Xác nhận đã trả (Quá hạn)</span>
-                    </button>
-                    <button type="button" class="btn btn-gradient-danger btn-lg"
-                            onclick="alert('Chức năng Báo mất đang được phát triển')"><i
-                            class="mdi mdi-alert-octagon-outline mr-2"></i> <span th:text="#{admin.borrowing.actions.report_lost}">Báo mất</span>
-                    </button>
-                </div>
-                <div th:case="${T(com.group2.library_management.entity.enums.BorrowingStatus).LOST_REPORTED}">
-                    <button type="button" class="btn btn-gradient-dark btn-lg mr-2"
-                            onclick="alert('Chức năng Xử lý báo mất đang được phát triển')"><i
-                            class="mdi mdi-cogs mr-2"></i> <span th:text="#{admin.borrowing.actions.handle_lost}">Xử lý báo mất</span>
-                    </button>
-                </div>
                 <div th:case="*">
-                    <p class="text-muted" th:text="#{admin.borrowing.actions.no_actions}">Không có hành động nào cho trạng thái này.</p>
+                    <p class="text-muted" th:text="#{admin.borrowing.actions.no_actions}">Hành động được thực hiện thông qua bảng chi tiết bên dưới.</p>
                 </div>
             </div>
         </div>

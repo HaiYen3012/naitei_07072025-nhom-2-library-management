@@ -8,7 +8,132 @@
             <div class="card">
                 <div class="card-body">
                     <h4 class="card-title" th:text="#{admin.borrowing.books.title}">Danh Sách Các Sách Được Yêu Cầu</h4>
-                    <div>
+                    
+                    <!-- Show update form only for APPROVED or BORROWED status -->
+                    <div th:if="${receipt.status() == T(com.group2.library_management.entity.enums.BorrowingStatus).APPROVED or 
+                                 receipt.status() == T(com.group2.library_management.entity.enums.BorrowingStatus).BORROWED}">
+                        <form id="updateBorrowingForm">
+                            <div>
+                                <table class="table table-hover book-info-table">
+                                    <thead class="thead-light">
+                                    <tr>
+                                        <th class="col-title" style="width: 22%;" th:text="#{admin.borrowing.books.table.book_name}">Tên sách</th>
+                                        <th class="col-book-info" style="width: 20%;">Thông tin sách</th>
+                                        <th class="col-status text-center" style="width: 16%;" th:text="#{admin.borrowing.books.table.status}">Trạng thái</th>
+                                        <th class="col-status-action" style="width: 14%;">Tình trạng</th>
+                                        <th class="col-due-date text-center" style="width: 14%;">Ngày hẹn trả</th>
+                                        <th class="col-extend-action" style="width: 14%;">Gia hạn</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr th:if="${receipt.borrowingDetails() == null or #lists.isEmpty(receipt.borrowingDetails())}">
+                                        <td colspan="6" class="text-center py-3" th:text="#{admin.borrowing.books.no_books}">Không có cuốn sách nào
+                                            trong phiếu mượn này.
+                                        </td>
+                                    </tr>
+                                    <tr th:each="detail : ${receipt.borrowingDetails()}">
+                                        <td class="col-title align-middle">
+                                            <h6 class="mb-0 font-weight-medium">
+                                                <a th:href="@{/admin/editions/{id}(id=${detail.editionId()})}"
+                                                   th:text="${detail.title()}"
+                                                   target="_blank"
+                                                   class="text-primary text-decoration-none"
+                                                   th:title="#{admin.borrowing.books.view_detail}"></a>
+                                            </h6>
+                                        </td>
+                                        <td class="col-book-info align-middle">
+                                            <div class="small">
+                                                <div class="mb-2 d-flex align-items-center">
+                                                    <i class="mdi mdi-barcode text-info mr-2"></i>
+                                                    <span class="font-weight-bold text-dark mr-1">ISBN:</span> 
+                                                    <span th:text="${detail.isbn() ?: 'N/A'}" class="text-dark font-weight-normal"></span>
+                                                </div>
+                                                <div class="mb-2 d-flex align-items-center">
+                                                    <i class="mdi mdi-qrcode text-success mr-2"></i>
+                                                    <span class="font-weight-bold text-dark mr-1">Mã vạch:</span> 
+                                                    <span th:text="${detail.barcode() ?: 'N/A'}" class="text-dark font-weight-normal"></span>
+                                                </div>
+                                                <div class="mb-0 d-flex align-items-center">
+                                                    <i class="mdi mdi-map-marker text-warning mr-2"></i>
+                                                    <span class="font-weight-bold text-dark mr-1">Vị trí:</span> 
+                                                    <span th:text="${detail.callNumber() ?: 'N/A'}" class="text-dark font-weight-normal"></span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="col-status align-middle text-center">
+                                            <span class="badge badge-pill px-3 py-2"
+                                                  th:classappend="${detail.status() == T(com.group2.library_management.entity.enums.BookStatus).AVAILABLE ? 'badge-success' :
+                                                  detail.status() == T(com.group2.library_management.entity.enums.BookStatus).BORROWED ? 'badge-primary' : 
+                                                  detail.status() == T(com.group2.library_management.entity.enums.BookStatus).LOST ? 'badge-danger' :
+                                                  detail.status() == T(com.group2.library_management.entity.enums.BookStatus).DAMAGED ? 'badge-warning' : 'badge-secondary'}"
+                                                  th:text="${@enumDisplayService.getBookStatusDisplayName(detail.status())}"></span>
+                                        </td>
+                                        <td class="col-status-action align-middle">
+                                            <div class="px-1">
+                                                <select class="form-control form-control-sm status-dropdown shadow-sm" 
+                                                        th:data-detail-id="${detail.id()}"
+                                                        th:data-current-status="${detail.status()}"
+                                                        style="border-radius: 6px; border: 1px solid #e3e6f0; font-size: 12px;">
+                                                    <option value="">-- Chọn --</option>
+                                                    <!-- For APPROVED status: picked up or not picked up -->
+                                                    <th:block th:if="${receipt.status() == T(com.group2.library_management.entity.enums.BorrowingStatus).APPROVED}">
+                                                        <option value="BORROWED">Đã lấy</option>
+                                                        <option value="NOT_BORROWED">Không lấy</option>
+                                                    </th:block>
+                                                    <!-- For BORROWED status: return only -->
+                                                    <th:block th:if="${receipt.status() == T(com.group2.library_management.entity.enums.BorrowingStatus).BORROWED}">
+                                                        <option value="RETURN">Đã trả</option>
+                                                    </th:block>
+                                                </select>
+                                                
+                                                <!-- Return date input (hidden by default) -->
+                                                <div class="form-group return-date-group mt-2" 
+                                                     th:data-detail-id="${detail.id()}"
+                                                     style="display: none;">
+                                                    <input type="date" class="form-control form-control-sm return-date-input shadow-sm" 
+                                                           th:data-detail-id="${detail.id()}"
+                                                           style="border-radius: 6px; border: 1px solid #e3e6f0; font-size: 12px;"
+                                                           th:value="${detail.actualReturnDate() != null ? #temporals.format(detail.actualReturnDate(), 'yyyy-MM-dd') : ''}">
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="col-due-date align-middle text-center">
+                                            <span class="badge badge-outline-info px-3 py-2 font-weight-medium" 
+                                                  th:text="${receipt.dueDate() != null ? #temporals.format(receipt.dueDate(), 'dd/MM/yyyy') : 'Chưa xác định'}"></span>
+                                        </td>
+                                        <td class="col-extend-action align-middle text-center">
+                                            <button type="button" class="btn btn-sm btn-outline-info extend-btn rounded-pill shadow-sm" 
+                                                    th:data-detail-id="${detail.id()}"
+                                                    th:disabled="${detail.actualReturnDate() != null or 
+                                                                detail.status() == T(com.group2.library_management.entity.enums.BookStatus).LOST or
+                                                                detail.status() == T(com.group2.library_management.entity.enums.BookStatus).DAMAGED}"
+                                                    style="border-width: 1px; font-size: 12px; padding: 4px 12px;">
+                                                <i class="mdi mdi-calendar-clock mr-1"></i>
+                                                <span class="font-weight-medium">Gia hạn</span>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div class="mt-4 text-center border-top pt-3">
+                                <button type="button" class="btn btn-primary btn-lg rounded-pill shadow-sm" id="updateReceiptBtn">
+                                    <i class="mdi mdi-content-save mr-2"></i>
+                                    <span>Cập nhật phiếu mượn</span>
+                                    <i class="mdi mdi-arrow-right ml-2"></i>
+                                </button>
+                                <div class="small text-muted mt-2">
+                                    <i class="mdi mdi-information-outline mr-1"></i>
+                                    Nhấn để lưu tất cả thay đổi
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <!-- Simple read-only table for other statuses -->
+                    <div th:unless="${receipt.status() == T(com.group2.library_management.entity.enums.BorrowingStatus).APPROVED or 
+                                     receipt.status() == T(com.group2.library_management.entity.enums.BorrowingStatus).BORROWED}">
                         <table class="table table-hover book-info-table">
                             <thead>
                             <tr>
@@ -38,7 +163,9 @@
                                 <td class="col-status">
                                      <span class="badge"
                                            th:classappend="${detail.status() == T(com.group2.library_management.entity.enums.BookStatus).AVAILABLE ? 'badge-success' :
-                                           detail.status() == T(com.group2.library_management.entity.enums.BookStatus).BORROWED ? 'badge-primary' : 'badge-secondary'}"
+                                           detail.status() == T(com.group2.library_management.entity.enums.BookStatus).BORROWED ? 'badge-primary' : 
+                                           detail.status() == T(com.group2.library_management.entity.enums.BookStatus).LOST ? 'badge-danger' :
+                                           detail.status() == T(com.group2.library_management.entity.enums.BookStatus).DAMAGED ? 'badge-warning' : 'badge-secondary'}"
                                            th:text="${@enumDisplayService.getBookStatusDisplayName(detail.status())}"></span>
                                 </td>
                                 <td class="col-location" th:text="${detail.callNumber()}"></td>

@@ -9,14 +9,17 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import com.group2.library_management.dto.request.UpdateBorrowingDetailRequest;
 import com.group2.library_management.dto.response.BorrowingReceiptResponse;
 import com.group2.library_management.entity.BookInstance;
+import com.group2.library_management.entity.BorrowingDetail;
 import com.group2.library_management.entity.BorrowingReceipt;
 import com.group2.library_management.entity.Edition;
 import com.group2.library_management.entity.User;
 import com.group2.library_management.entity.enums.BookStatus;
 import com.group2.library_management.entity.enums.BorrowingStatus;
 import com.group2.library_management.repository.BookInstanceRepository;
+import com.group2.library_management.repository.BorrowingDetailRepository;
 import com.group2.library_management.repository.BorrowingReceiptRepository;
 import com.group2.library_management.repository.EditionRepository;
 import com.group2.library_management.service.BorrowingReceiptService;
@@ -31,6 +34,7 @@ import lombok.RequiredArgsConstructor;
 public class BorrowingReceiptServiceImpl implements BorrowingReceiptService {
 
     private final BorrowingReceiptRepository borrowingReceiptRepository;
+    private final BorrowingDetailRepository borrowingDetailRepository;
     private final BookInstanceRepository bookInstanceRepository;
     private final EditionRepository editionRepository;
 
@@ -185,5 +189,179 @@ public class BorrowingReceiptServiceImpl implements BorrowingReceiptService {
 
         // TODO: Send email notification to user
         // emailService.sendReturnConfirmationNotification(receipt.getUser().getEmail(), receipt);
+    }
+
+    @Override
+    @Transactional
+    public void updateBorrowingDetails(Integer borrowingReceiptId, List<UpdateBorrowingDetailRequest> updates) {
+        BorrowingReceipt receipt = borrowingReceiptRepository.findById(borrowingReceiptId)
+                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy phiếu mượn với ID: " + borrowingReceiptId));
+
+        // Check if receipt status allows updating
+        if (receipt.getStatus() != BorrowingStatus.APPROVED && receipt.getStatus() != BorrowingStatus.BORROWED) {
+            throw new IllegalStateException("Chỉ có thể cập nhật chi tiết khi phiếu mượn ở trạng thái APPROVED hoặc BORROWED");
+        }
+
+        boolean hasChanges = false;
+
+        for (UpdateBorrowingDetailRequest updateRequest : updates) {
+            BorrowingDetail detail = borrowingDetailRepository.findById(updateRequest.getBorrowingDetailId())
+                    .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy chi tiết đơn mượn với ID: " + updateRequest.getBorrowingDetailId()));
+
+            // Validate that the detail belongs to this receipt
+            if (!detail.getBorrowingReceipt().getId().equals(borrowingReceiptId)) {
+                throw new IllegalArgumentException("Chi tiết đơn mượn không thuộc về phiếu mượn này");
+            }
+
+            switch (updateRequest.getAction()) {
+                case "EXTEND":
+                    handleExtendAction(detail, updateRequest);
+                    hasChanges = true;
+                    break;
+                case "RETURN":
+                    handleReturnAction(detail, updateRequest);
+                    hasChanges = true;
+                    break;
+                case "BORROWED":
+                    handleBorrowedAction(detail, updateRequest);
+                    hasChanges = true;
+                    break;
+                case "NOT_BORROWED":
+                    handleNotBorrowedAction(detail, updateRequest);
+                    hasChanges = true;
+                    break;
+                default:
+                    throw new IllegalArgumentException("Hành động không hợp lệ: " + updateRequest.getAction());
+            }
+        }
+
+        if (hasChanges) {
+            // Update receipt status based on current state of all details
+            updateReceiptStatus(receipt);
+            borrowingReceiptRepository.save(receipt);
+        }
+    }
+
+    private void handleExtendAction(BorrowingDetail detail, UpdateBorrowingDetailRequest request) {
+        if (request.getNewDueDate() == null) {
+            throw new IllegalArgumentException("Ngày hẹn trả mới là bắt buộc khi gia hạn");
+        }
+        if (request.getNewDueDate().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Ngày gia hạn phải sau ngày hiện tại");
+        }
+
+        // Update the borrowing receipt's due date instead of detail's due date
+        BorrowingReceipt receipt = detail.getBorrowingReceipt();
+        receipt.setDueDate(request.getNewDueDate());
+        borrowingReceiptRepository.save(receipt);
+        
+        borrowingDetailRepository.save(detail);
+    }
+
+    private void handleReturnAction(BorrowingDetail detail, UpdateBorrowingDetailRequest request) {
+        LocalDateTime returnDate = request.getActualReturnDate() != null ? 
+                request.getActualReturnDate() : LocalDateTime.now();
+        
+        if (returnDate.isAfter(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Ngày trả thực tế không được ở tương lai");
+        }
+
+        // Set actual return date (using refund_date field)
+        detail.setActualReturnDate(returnDate);
+
+        // Update book instance status to AVAILABLE
+        BookInstance bookInstance = detail.getBookInstance();
+        bookInstance.setStatus(BookStatus.AVAILABLE);
+        bookInstanceRepository.save(bookInstance);
+
+        // Increase available quantity
+        Edition edition = bookInstance.getEdition();
+        edition.setAvailableQuantity(edition.getAvailableQuantity() + 1);
+        editionRepository.save(edition);
+
+        borrowingDetailRepository.save(detail);
+    }
+
+
+
+    private void updateReceiptStatus(BorrowingReceipt receipt) {
+        List<BorrowingDetail> details = receipt.getBorrowingDetails();
+        
+        if (receipt.getStatus() == BorrowingStatus.APPROVED) {
+            // Logic for APPROVED → BORROWED or CANCELLED
+            boolean hasBorrowed = details.stream()
+                    .anyMatch(detail -> detail.getBookInstance().getStatus() == BookStatus.BORROWED);
+            
+            if (hasBorrowed) {
+                // At least one book was borrowed → change to BORROWED
+                receipt.setStatus(BorrowingStatus.BORROWED);
+            } else {
+                // Check if all books are available (not borrowed) → change to CANCELLED
+                boolean allAvailable = details.stream()
+                        .allMatch(detail -> detail.getBookInstance().getStatus() == BookStatus.AVAILABLE);
+                if (allAvailable) {
+                    receipt.setStatus(BorrowingStatus.CANCELLED);
+                }
+            }
+        } else if (receipt.getStatus() == BorrowingStatus.BORROWED) {
+            // Original logic for BORROWED status
+            boolean hasReturned = false;
+            boolean hasBorrowed = false;
+            boolean hasLostOrDamaged = false;
+
+            for (BorrowingDetail detail : details) {
+                BookInstance bookInstance = detail.getBookInstance();
+                
+                if (detail.getActualReturnDate() != null) {
+                    hasReturned = true;
+                } else if (bookInstance.getStatus() == BookStatus.BORROWED) {
+                    hasBorrowed = true;
+                } else if (bookInstance.getStatus() == BookStatus.LOST || bookInstance.getStatus() == BookStatus.DAMAGED) {
+                    hasLostOrDamaged = true;
+                }
+            }
+
+            if (!hasBorrowed) {
+                // No books in BORROWED status
+                if (hasReturned && hasLostOrDamaged) {
+                    receipt.setStatus(BorrowingStatus.LOST_REPORTED);
+                } else if (hasReturned && !hasLostOrDamaged) {
+                    receipt.setStatus(BorrowingStatus.RETURNED);
+                } else if (!hasReturned && hasLostOrDamaged) {
+                    receipt.setStatus(BorrowingStatus.LOST_REPORTED);
+                }
+            } else {
+                // Still has books in BORROWED status
+                receipt.setStatus(BorrowingStatus.BORROWED);
+                
+                // Check if overdue
+                LocalDateTime now = LocalDateTime.now();
+                boolean isOverdue = receipt.getDueDate() != null && receipt.getDueDate().isBefore(now);
+                
+                if (isOverdue) {
+                    receipt.setStatus(BorrowingStatus.OVERDUE);
+                }
+            }
+        }
+    }
+
+    private void handleBorrowedAction(BorrowingDetail detail, UpdateBorrowingDetailRequest request) {
+        // Mark book as borrowed - don't change book instance status as it's already borrowed
+        // This is used when confirming pickup from APPROVED status
+        borrowingDetailRepository.save(detail);
+    }
+
+    private void handleNotBorrowedAction(BorrowingDetail detail, UpdateBorrowingDetailRequest request) {
+        // Mark book as not borrowed - return book to available status
+        BookInstance bookInstance = detail.getBookInstance();
+        bookInstance.setStatus(BookStatus.AVAILABLE);
+        bookInstanceRepository.save(bookInstance);
+
+        // Increase available quantity
+        Edition edition = bookInstance.getEdition();
+        edition.setAvailableQuantity(edition.getAvailableQuantity() + 1);
+        editionRepository.save(edition);
+
+        borrowingDetailRepository.save(detail);
     }
 }

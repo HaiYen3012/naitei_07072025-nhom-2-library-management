@@ -1,5 +1,6 @@
 package com.group2.library_management.controller.admin;
 
+import com.group2.library_management.dto.request.UpdateBorrowingDetailRequest;
 import com.group2.library_management.dto.response.BorrowingReceiptResponse;
 import com.group2.library_management.entity.enums.BorrowingStatus;
 import com.group2.library_management.service.BorrowingReceiptService;
@@ -16,9 +17,13 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import java.util.List;
 
 @Slf4j
 @Controller
@@ -107,5 +112,23 @@ public class BorrowingController {
             redirectAttributes.addFlashAttribute("errorMessage", errorMessage);
         }
         return "redirect:/admin/borrow-requests/" + id;
+    }
+
+    @PostMapping("/{id}/update-details")
+    @ResponseBody
+    public String updateBorrowingDetails(
+            @PathVariable("id") Integer id,
+            @RequestBody List<UpdateBorrowingDetailRequest> updates,
+            RedirectAttributes redirectAttributes
+    ) {
+        try {
+            borrowingReceiptService.updateBorrowingDetails(id, updates);
+            String successMessage = messageSource.getMessage("admin.borrowing.success.updated", 
+                null, LocaleContextHolder.getLocale());
+            return "success";
+        } catch (Exception e) {
+            log.error("Lỗi khi cập nhật chi tiết đơn mượn ID: {}", id, e);
+            return "error: " + e.getMessage();
+        }
     }
 }
