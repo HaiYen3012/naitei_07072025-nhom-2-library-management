@@ -39,7 +39,8 @@ public class BorrowingReceipt extends Auditable {
     private LocalDateTime dueDate;
 
     @Column(nullable = false)
-    private BorrowingStatus status;
+    @Builder.Default
+    private BorrowingStatus status = BorrowingStatus.PENDING;
 
     @Column(name = "rejected_reason", columnDefinition = "TEXT")
     private String rejectedReason;
@@ -49,4 +50,12 @@ public class BorrowingReceipt extends Auditable {
 
     @OneToMany(mappedBy = "borrowingReceipt", fetch = FetchType.LAZY)
     private List<ReceiptFine> receiptFines;
+
+    @OneToMany(
+        mappedBy = "borrowingReceipt", 
+        fetch = FetchType.LAZY, 
+        cascade = CascadeType.ALL, 
+        orphanRemoval = true
+    )
+    private List<BorrowingRequestDetail> borrowingRequestDetails;
 }

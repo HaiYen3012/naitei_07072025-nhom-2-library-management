@@ -1,6 +1,7 @@
 package com.group2.library_management.exception;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -8,6 +9,7 @@ import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AccountStatusException;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.group2.library_management.dto.response.BaseApiResponse;
 import com.group2.library_management.dto.response.ErrorResponse;
 
@@ -387,6 +390,89 @@ public class ApiExceptionHandler {
             errorTitle
         );
         return new ResponseEntity<>(apiResponse, HttpStatus.UNAUTHORIZED);
+    }
+
+    @ExceptionHandler(InvalidPickupDateException.class)
+    public ResponseEntity<BaseApiResponse<ErrorResponse>> handleInvalidPickupDateException(InvalidPickupDateException ex, HttpServletRequest request) {
+        String errorTitle = getMessage("error.title.validation.failed");
+
+        ErrorResponse errorResponse = new ErrorResponse(
+            LocalDateTime.now(),
+            HttpStatus.BAD_REQUEST.value(),
+            HttpStatus.BAD_REQUEST.getReasonPhrase(),
+            ex.getMessage(), 
+            request.getRequestURI()
+        );
+
+        BaseApiResponse<ErrorResponse> apiResponse = new BaseApiResponse<>(
+            HttpStatus.BAD_REQUEST.value(),
+            errorResponse,
+            errorTitle
+        );
+        return new ResponseEntity<>(apiResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(EmptyCartException.class)
+    public ResponseEntity<BaseApiResponse<ErrorResponse>> handleEmptyCartException(EmptyCartException ex, HttpServletRequest request) {
+        String errorMessage = getMessage("error.message.borrowing.cart_is_empty");
+        String errorTitle = getMessage("error.title.validation.failed");
+
+        ErrorResponse errorResponse = new ErrorResponse(
+            LocalDateTime.now(),
+            HttpStatus.BAD_REQUEST.value(),
+            HttpStatus.BAD_REQUEST.getReasonPhrase(),
+            errorMessage,
+            request.getRequestURI()
+        );
+
+        BaseApiResponse<ErrorResponse> apiResponse = new BaseApiResponse<>(
+            HttpStatus.BAD_REQUEST.value(),
+            errorResponse,
+            errorTitle
+        );
+        return new ResponseEntity<>(apiResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(BorrowingLimitExceededException.class)
+    public ResponseEntity<BaseApiResponse<ErrorResponse>> handleBorrowingLimitExceededException(BorrowingLimitExceededException ex, HttpServletRequest request) {
+        String errorTitle = getMessage("error.title.borrowing.limit_exceeded");
+        
+        ErrorResponse errorResponse = new ErrorResponse(
+            LocalDateTime.now(),
+            HttpStatus.BAD_REQUEST.value(),
+            HttpStatus.BAD_REQUEST.getReasonPhrase(),
+            ex.getMessage(),
+            request.getRequestURI()
+        );
+
+        BaseApiResponse<ErrorResponse> apiResponse = new BaseApiResponse<>(
+            HttpStatus.BAD_REQUEST.value(), 
+            errorResponse, 
+            errorTitle
+        );
+        
+        return new ResponseEntity<>(apiResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(EditionBorrowingLimitExceededException.class)
+    public ResponseEntity<BaseApiResponse<ErrorResponse>> handleEditionBorrowingLimitExceededException(EditionBorrowingLimitExceededException ex, HttpServletRequest request) {
+        String errorTitle = getMessage("error.title.borrowing.limit_exceeded");
+        
+        ErrorResponse errorResponse = new ErrorResponse(
+            LocalDateTime.now(),
+            HttpStatus.BAD_REQUEST.value(),
+            HttpStatus.BAD_REQUEST.getReasonPhrase(),
+            ex.getMessage(),
+            request.getRequestURI()
+        );
+
+        BaseApiResponse<ErrorResponse> apiResponse = new BaseApiResponse<>(
+            HttpStatus.BAD_REQUEST.value(), 
+            errorResponse, 
+            errorTitle
+        );
+
+        return new ResponseEntity<>(apiResponse, HttpStatus.BAD_REQUEST);
     }
 
     // xử lý lỗi khác (fallback)
