@@ -19,7 +19,8 @@ public interface BorrowingReceiptRepository extends JpaRepository<BorrowingRecei
 
     @EntityGraph(attributePaths = {
             "user",
-            "borrowingDetails.bookInstance.edition"
+            "borrowingDetails.bookInstance.edition",
+            "borrowingRequestDetails.edition"
     })
     Optional<BorrowingReceipt> findById(Integer id);
 

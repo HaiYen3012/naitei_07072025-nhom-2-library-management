@@ -24,6 +24,8 @@ public interface BookInstanceRepository extends ListCrudRepository<BookInstance,
     // Count active copies of an edition
     long countByEditionIdAndDeleteAtIsNull(Integer editionId);
 
+    long countByEditionIdAndStatus(Integer editionId, BookStatus status);
+
     // Count all copies (including soft-deleted) of an edition — use native query to bypass entity-level @Where
     @Query(value = "SELECT COUNT(*) FROM book_instances WHERE edition_id = :editionId", nativeQuery = true)
     long countAllByEditionIdNative(@Param("editionId") Integer editionId);
@@ -34,6 +36,9 @@ public interface BookInstanceRepository extends ListCrudRepository<BookInstance,
     @Query(value = "SELECT EXISTS(SELECT 1 FROM book_instances WHERE edition_id = :editionId)", 
            nativeQuery = true)
     Integer existsByEditionIdNative(@Param("editionId") Integer editionId);
+
+    @Query("SELECT bi FROM BookInstance bi WHERE bi.edition.id = :editionId AND bi.status = :status ORDER BY bi.acquiredDate ASC")
+    List<BookInstance> findByEditionIdAndStatusOrderByAcquiredDateAsc(@Param("editionId") Integer editionId, @Param("status") BookStatus status);
 
     // default method thực hiện convert sang boolean
     default boolean existsByEditionId(Integer editionId) {

@@ -19,15 +19,25 @@ public record BorrowingReceiptResponse(
         LocalDateTime updatedAt,
         BorrowingStatus status,
         String rejectedReason,
-        List<BorrowingDetailResponse> borrowingDetails) {
+        List<BorrowingDetailResponse> borrowingDetails,
+        List<BorrowingRequestDetailResponse> borrowingRequestDetails) {
     public static BorrowingReceiptResponse fromEntity(BorrowingReceipt entity,
             boolean includeDetails) {
         List<BorrowingDetailResponse> details = Collections.emptyList();
+        List<BorrowingRequestDetailResponse> requestDetails = Collections.emptyList();
 
-        if (includeDetails && entity.getBorrowingDetails() instanceof List<?> list && !list.isEmpty()) {
-            details = entity.getBorrowingDetails().stream()
-                    .map(BorrowingDetailResponse::fromEntity)
-                    .collect(Collectors.toList());
+        if (includeDetails) {
+            if (entity.getBorrowingDetails() != null && !entity.getBorrowingDetails().isEmpty()) {
+                details = entity.getBorrowingDetails().stream()
+                        .map(BorrowingDetailResponse::fromEntity)
+                        .collect(Collectors.toList());
+            }
+            
+            if (entity.getBorrowingRequestDetails() != null && !entity.getBorrowingRequestDetails().isEmpty()) {
+                requestDetails = entity.getBorrowingRequestDetails().stream()
+                        .map(BorrowingRequestDetailResponse::fromEntity)
+                        .collect(Collectors.toList());
+            }
         }
 
         return new BorrowingReceiptResponse(
@@ -41,7 +51,8 @@ public record BorrowingReceiptResponse(
                 entity.getUpdatedAt(),
                 entity.getStatus(),
                 entity.getRejectedReason(),
-                details);
+                details,
+                requestDetails);
     }
 
     public static BorrowingReceiptResponse fromEntity(BorrowingReceipt entity) {

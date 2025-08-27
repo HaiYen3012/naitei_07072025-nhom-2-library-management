@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -19,6 +21,7 @@ import com.group2.library_management.dto.response.BorrowingReceiptResponse;
 import com.group2.library_management.entity.BookInstance;
 import com.group2.library_management.entity.BorrowingDetail;
 import com.group2.library_management.entity.BorrowingReceipt;
+import com.group2.library_management.entity.BorrowingRequestDetail;
 import com.group2.library_management.entity.Edition;
 import com.group2.library_management.entity.User;
 import com.group2.library_management.entity.enums.BookStatus;
@@ -26,6 +29,7 @@ import com.group2.library_management.entity.enums.BorrowingStatus;
 import com.group2.library_management.repository.BookInstanceRepository;
 import com.group2.library_management.repository.BorrowingDetailRepository;
 import com.group2.library_management.repository.BorrowingReceiptRepository;
+import com.group2.library_management.repository.BorrowingRequestDetailRepository;
 import com.group2.library_management.repository.EditionRepository;
 import com.group2.library_management.service.BorrowingReceiptService;
 
@@ -41,7 +45,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class BorrowingReceiptServiceImpl implements BorrowingReceiptService {
 
-    private static final String APPROVAL_ERROR_PREFIX = "Không thể phê duyệt: Các sách sau không còn sẵn sàng: ";
     private static final String RECEIPT_NOT_FOUND_ERROR = "Không tìm thấy phiếu mượn với ID: ";
     private static final String PENDING_STATUS_REQUIRED_ERROR = "Chỉ có thể phê duyệt yêu cầu đang ở trạng thái chờ phê duyệt";
     private static final String REJECTION_STATUS_REQUIRED_ERROR = "Chỉ có thể từ chối yêu cầu đang ở trạng thái chờ phê duyệt";
@@ -51,6 +54,8 @@ public class BorrowingReceiptServiceImpl implements BorrowingReceiptService {
     private final BookInstanceRepository bookInstanceRepository;
     private final EditionRepository editionRepository;
     private final BorrowingDetailRepository borrowingDetailRepository;
+    private final BorrowingRequestDetailRepository borrowingRequestDetailRepository;
+    private final MessageSource messageSource;
 
     private final Map<Integer, LocalDateTime> detailExtendedDueDates = new HashMap<>();
 
@@ -149,44 +154,90 @@ public class BorrowingReceiptServiceImpl implements BorrowingReceiptService {
 
         // Check current status
         if (receipt.getStatus() != BorrowingStatus.PENDING) {
-            throw new IllegalStateException(PENDING_STATUS_REQUIRED_ERROR);
+            throw new IllegalStateException(messageSource.getMessage(
+                "admin.borrowing.error.pending_status_required", 
+                null, 
+                PENDING_STATUS_REQUIRED_ERROR, 
+                LocaleContextHolder.getLocale()));
         }
 
-        // Validate all book instances are available before approving
-        List<BookInstance> unavailableBooks = receipt.getBorrowingDetails().stream()
-                .map(BorrowingDetail::getBookInstance)
-                .filter(bookInstance -> bookInstance.getStatus() != BookStatus.AVAILABLE).toList();
+        // Get borrowing request details instead of borrowing details
+        List<BorrowingRequestDetail> requestDetails = borrowingRequestDetailRepository
+                .findByBorrowingReceiptId(receipt.getId());
 
-        // If any book is not available, reject the approval
-        if (!unavailableBooks.isEmpty()) {
-            String errorMessage = APPROVAL_ERROR_PREFIX + unavailableBooks.stream()
-                    .map(this::formatBookInstanceError).collect(Collectors.joining(", "));
+        if (requestDetails.isEmpty()) {
+            throw new IllegalStateException(messageSource.getMessage(
+                "admin.borrowing.error.no_request_details", 
+                null, 
+                "Không tìm thấy chi tiết yêu cầu mượn", 
+                LocaleContextHolder.getLocale()));
+        }
+
+        // Check availability for all editions before processing
+        List<String> insufficientBooks = new ArrayList<>();
+        Map<Integer, List<BookInstance>> availableInstancesMap = new HashMap<>();
+
+        for (BorrowingRequestDetail requestDetail : requestDetails) {
+            Edition edition = requestDetail.getEdition();
+            int requestedQuantity = requestDetail.getQuantity();
+
+            // Find available book instances for this edition
+            List<BookInstance> availableInstances = bookInstanceRepository
+                    .findByEditionIdAndStatusOrderByAcquiredDateAsc(edition.getId(), BookStatus.AVAILABLE);
+
+            if (availableInstances.size() < requestedQuantity) {
+                insufficientBooks.add(String.format("'%s' (yêu cầu: %d, có sẵn: %d)", 
+                        edition.getTitle(), requestedQuantity, availableInstances.size()));
+            } else {
+                // Store the instances we will use
+                availableInstancesMap.put(edition.getId(), 
+                        availableInstances.subList(0, requestedQuantity));
+            }
+        }
+
+        // If any edition doesn't have enough books, throw exception with detailed message
+        if (!insufficientBooks.isEmpty()) {
+            String errorMessage = messageSource.getMessage(
+                "admin.borrowing.error.insufficient_books", 
+                new Object[]{String.join(", ", insufficientBooks)}, 
+                "Không thể phê duyệt: " + String.join(", ", insufficientBooks), 
+                LocaleContextHolder.getLocale());
             throw new IllegalStateException(errorMessage);
         }
 
         // All books are available, proceed with approval
-        // Update borrowing receipt status
-        receipt.setStatus(BorrowingStatus.APPROVED);
+        List<BorrowingDetail> borrowingDetails = new ArrayList<>();
 
-        // Update status of all book instances and decrease availableQuantity
-        receipt.getBorrowingDetails().forEach(detail -> {
-            BookInstance bookInstance = detail.getBookInstance();
-            Edition edition = bookInstance.getEdition();
+        for (BorrowingRequestDetail requestDetail : requestDetails) {
+            Edition edition = requestDetail.getEdition();
+            List<BookInstance> instancesToReserve = availableInstancesMap.get(edition.getId());
 
-            // Update book instance status: AVAILABLE → RESERVED (when approve request)
-            bookInstance.setStatus(BookStatus.RESERVED);
-            bookInstanceRepository.save(bookInstance);
+            // Create borrowing details and reserve book instances
+            for (BookInstance instance : instancesToReserve) {
+                // Create borrowing detail
+                BorrowingDetail detail = BorrowingDetail.builder()
+                        .borrowingReceipt(receipt)
+                        .bookInstance(instance)
+                        .build();
+                borrowingDetails.add(detail);
+                borrowingDetailRepository.save(detail);
 
-            // Check availableQuantity before decreasing
-            if (edition.getAvailableQuantity() <= 0) {
-                throw new IllegalStateException(
-                        "Số lượng sách khả dụng không đủ để cho mượn: " + edition.getTitle());
+                // Update book instance status to RESERVED
+                instance.setStatus(BookStatus.RESERVED);
+                bookInstanceRepository.save(instance);
             }
-            edition.setAvailableQuantity(edition.getAvailableQuantity() - 1);
-            editionRepository.save(edition); // Save edition to update availableQuantity
-        });
 
+            // Update edition's available quantity
+            edition.setAvailableQuantity(edition.getAvailableQuantity() - requestDetail.getQuantity());
+            editionRepository.save(edition);
+        }
+
+        // Update borrowing receipt status to APPROVED
+        receipt.setStatus(BorrowingStatus.APPROVED);
         borrowingReceiptRepository.save(receipt);
+
+        log.info("Phê duyệt thành công phiếu mượn ID: {}, tổng cộng {} cuốn sách được đặt chỗ", 
+                receipt.getId(), borrowingDetails.size());
 
         // TODO: Send email notification to user
         // emailService.sendApprovalNotification(receipt.getUser().getEmail(), receipt);

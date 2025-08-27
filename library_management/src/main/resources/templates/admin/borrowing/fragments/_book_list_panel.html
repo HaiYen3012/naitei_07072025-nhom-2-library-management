@@ -347,10 +347,112 @@
                 </form>
               </div>
 
+              <div th:if="${receipt.status() == T(com.group2.library_management.entity.enums.BorrowingStatus).PENDING}">
+                <table class="table table-hover book-info-table">
+                  <thead>
+                    <tr>
+                      <th class="col-title" style="width: 34%" th:text="#{admin.borrowing.books.table.book_name}">
+                        Tên sách
+                      </th>
+                      <th class="col-isbn" style="width: 18%" th:text="#{admin.borrowing.books.table.isbn}">
+                        ISBN
+                      </th>
+                      <th class="col-quantity text-center" style="width: 15%" th:text="#{admin.borrowing.books.table.quantity}">
+                        Số lượng yêu cầu
+                      </th>
+                      <th class="col-available text-center" style="width: 15%" th:text="#{admin.borrowing.books.table.available}">
+                        Có sẵn
+                      </th>
+                      <th class="col-status text-center" style="width: 18%" th:text="#{admin.borrowing.books.table.status}">
+                        Trạng thái
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr th:if="${receipt.borrowingRequestDetails() == null or #lists.isEmpty(receipt.borrowingRequestDetails())}">
+                      <td colspan="5" class="text-center py-3" th:text="#{admin.borrowing.books.no_request_books}">
+                        Không có yêu cầu sách nào trong phiếu mượn này.
+                      </td>
+                    </tr>
+                    <tr th:each="requestDetail : ${receipt.borrowingRequestDetails()}">
+                      <td class="col-title">
+                        <a th:href="@{/admin/editions/{id}(id=${requestDetail.editionId()})}" 
+                          th:text="${requestDetail.title()}" 
+                          target="_blank" 
+                          class="text-primary text-decoration-none"
+                          th:title="#{admin.borrowing.books.view_detail}"></a>
+                      </td>
+                      <td class="col-isbn" th:text="${requestDetail.isbn() ?: 'N/A'}"></td>
+                      <td class="col-quantity text-center">
+                        <span class="badge badge-primary badge-pill px-3 py-2" th:text="${requestDetail.quantity()}"></span>
+                      </td>
+                      <td class="col-available text-center">
+                        <span class="badge badge-success badge-pill px-3 py-2" 
+                              th:text="${@bookInstanceRepository.countByEditionIdAndStatus(requestDetail.editionId(), T(com.group2.library_management.entity.enums.BookStatus).AVAILABLE)}"></span>
+                      </td>
+                      <td class="col-status text-center">
+                        <span class="badge badge-warning badge-pill px-3 py-2" th:text="#{admin.borrowing.status.pending}">
+                          Chờ phê duyệt
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div th:if="${receipt.status() == T(com.group2.library_management.entity.enums.BorrowingStatus).REJECTED}">
+                <table class="table table-hover book-info-table">
+                  <thead>
+                    <tr>
+                      <th class="col-title" style="width: 40%" th:text="#{admin.borrowing.books.table.book_name}">
+                        Tên sách
+                      </th>
+                      <th class="col-isbn" style="width: 20%" th:text="#{admin.borrowing.books.table.isbn}">
+                        ISBN
+                      </th>
+                      <th class="col-quantity text-center" style="width: 20%" th:text="#{admin.borrowing.books.table.quantity}">
+                        Số lượng yêu cầu
+                      </th>
+                      <th class="col-status text-center" style="width: 20%" th:text="#{admin.borrowing.books.table.status}">
+                        Trạng thái
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr th:if="${receipt.borrowingRequestDetails() == null or #lists.isEmpty(receipt.borrowingRequestDetails())}">
+                      <td colspan="4" class="text-center py-3" th:text="#{admin.borrowing.books.no_request_books}">
+                        Không có yêu cầu sách nào trong phiếu mượn này.
+                      </td>
+                    </tr>
+                    <tr th:each="requestDetail : ${receipt.borrowingRequestDetails()}">
+                      <td class="col-title">
+                        <a th:href="@{/admin/editions/{id}(id=${requestDetail.editionId()})}" 
+                          th:text="${requestDetail.title()}" 
+                          target="_blank" 
+                          class="text-primary text-decoration-none"
+                          th:title="#{admin.borrowing.books.view_detail}"></a>
+                      </td>
+                      <td class="col-isbn" th:text="${requestDetail.isbn() ?: 'N/A'}"></td>
+                      <td class="col-quantity text-center">
+                        <span class="badge badge-primary badge-pill px-3 py-2" th:text="${requestDetail.quantity()}"></span>
+                      </td>
+                      <td class="col-status text-center">
+                        <span class="badge badge-danger badge-pill px-3 py-2" th:text="#{admin.borrowing.status.rejected}">
+                          Đã từ chối
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+
               <div
                 th:unless="${receipt.status() == T(com.group2.library_management.entity.enums.BorrowingStatus).APPROVED or 
                                      receipt.status() == T(com.group2.library_management.entity.enums.BorrowingStatus).BORROWED or
-                                     receipt.status() == T(com.group2.library_management.entity.enums.BorrowingStatus).OVERDUE}"
+                                     receipt.status() == T(com.group2.library_management.entity.enums.BorrowingStatus).OVERDUE or
+                                     receipt.status() == T(com.group2.library_management.entity.enums.BorrowingStatus).PENDING or
+                                     receipt.status() == T(com.group2.library_management.entity.enums.BorrowingStatus).REJECTED}"
               >
                 <table class="table table-hover book-info-table">
                   <thead>
